@@ -2,10 +2,44 @@
 
 Todas as informações postas neste arquivo foram retiradas de:
 
+- https://elixir-lang.org/install.html
 - https://elixir-lang.org/getting-started/basic-types.html
 - https://hexdocs.pm/elixir/String.html
+- https://elixir-lang.org/getting-started/modules-and-functions.html
 
-## Tipos Básicos no Elixir
+# Instalação
+
+  - MacOs
+    - Usando **Homebrew**: `brew install elixir`
+    - Usando **Macports**: `sudo port install elixir`
+
+  - GNU/Linux
+    - ArchLinux: `pacman -S elixir`
+    - Ubuntu/Debian: 
+      - Adicione o repositório `Earlang Solutions`: `wget https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb && sudo dpkg -i erlang-solutions_2.0_all.deb`
+      - Atualize os pacotes: `sudo apt-get update`
+      - Instalando a plataforma Earlang/OTP: `sudo apt-get install esl-erlang`
+      - Instalando o Elixir: `sudo apt-get install elixir`
+
+  - Windows
+    - Usando instalador web:
+      - [Baixe o instalador](https://github.com/elixir-lang/elixir-windows-setup/releases/download/v2.2/elixir-websetup.exe)
+      - Instalação padrão: `next, next, ..., finish`
+    - Utilizando `chocolatey`: `cinst elixir`
+
+  - Docker
+    - Entre no modo interativo:
+      - Execute: `docker run -it --rm elixir`
+    - Entre no terminal dentro do container com o elixir instalado:
+      - Execute: `docker run -it --rm elixir bash`
+
+  A instalação do Docker automaticamente aponta para a última versão do Erlang e Elixir, é recomendado utilizar [Hex pm Docker images](https://hub.docker.com/r/hexpm/elixir) que são imutáveis e apontam para uma versão específica do Erlang e Elixir.
+
+  Mais informações podem ser adquiridas na página de instalação:
+
+  - https://elixir-lang.org/install.html
+
+# Tipos Básicos no Elixir
 
 | **Valor**    |   **Tipo**   |
 |:------------ |:------------ |
@@ -137,6 +171,8 @@ h SisDistrib.teste/2
 É possível utilizar a função `h` até para procurar a documentação de operadores:
 
 ```elixir
+iex> h -/2
+
 def left - right 
 @spec integer() - integer() :: integer()
 @spec float() - float() :: float()
@@ -359,3 +395,517 @@ iex> (fn -> nome = "Não é mais Thiago" end).()
 iex> nome
 "Thiago"
 ```
+
+## Listas no Elixir
+As listas no elixir são representadas por colchetes `[]` especificando uma lista de valores. Os valores podem ser de qualquer tipo:
+
+```elixir
+iex> lista = [1, 5.0, :atomo, "Texto", false]
+[1, 5.0, :atomo, "Texto", false]
+iex> length lista
+5
+```
+---
+Como é possível observar no exemplo acima, o módulo `Kernel` possui uma função length/1 que retorna o tamanho de uma lista.
+
+---
+
+Listas podem ser concatenadas ou subtraídas utilizando os operadores `++/2` e `--/2`:
+
+```elixir
+iex> [1, 2, 3] ++ [4, 5, 6]
+[1, 2, 3, 4, 5, 6]
+
+iex> [1, true, 2, false, 3, true] -- [true, false]
+[1, 2, 3, true]
+
+iex> [1, true, 2, false, 3, true] -- [true, false, true]
+[1, 2, 3]
+```
+
+As operações com listas nunca modificam a lista em questão, apenas geram uma nova lista com os valores modificados.
+
+---
+**No elixir as estruturas de dados como `lista (list)` e `tuplas (tuple)` são imutáveis**
+
+---
+É possível que quando uma lista for criada ela seja representada como uma string em aspas simples `''`, por exemplo:
+
+```elixir
+iex> [11, 12, 13]
+'\v\f\r'
+
+iex> [104, 101, 108, 108, 111]
+'hello'
+```
+
+Isso acontece porque quando o Elixir percebe uma lista com elementos "printáveis", ele vai exibí-los como uma **lista de caracteres**.
+
+Sempre que um valor inesperado surgir ao mexer com o IEx é possível observar as informações dele com a função `i/1`:
+
+```elixir
+iex> i 'uma lista de caracteres'
+
+Term
+  'uma lista de caracteres'
+
+Data type
+  List
+
+Description
+  This is a list of integers that is printed as a sequence of characters
+  delimited by single quotes because all the integers in it represent printable ASCII characters. 
+  
+  Conventionally, a list of Unicode code points is known as a charlist and a list of ASCII characters is a subset of it.
+
+Raw representation
+  [117, 109, 97, 32, 108, 105, 115, 116, 97, 32, 100, 101, 32, 99, 97, 114, 97, 99, 116, 101, 114, 101, 115]
+
+Reference modules
+  List
+
+Implemented protocols
+  Collectable, Enumerable, IEx.Info, Inspect, List.Chars, String.Chars
+
+```
+
+Para comprovar a diferença entre uma lista de caracteres e uma string, basta realizar o teste:
+
+``` elixir
+ìex> 'string' == "string"
+false
+```
+---
+*AVISO:*
+
+**As listas no elixir são listas conectadas `linked lists`, ou seja os seus elementos não estão necessariamente salvos em sequência na memória então buscas e acessos a indices específicos podem demorar um pouco**
+
+## Tuplas no Elixir
+As tuplas, diferentemente das listas, são armazenadas em espaços contínuos de memória (cada elemento é armazenado em sequência).
+
+São representadas por chaves `{}` e também podem armazenar qualquer valor:
+
+```elixir
+iex> {:sistemas, "Um texto"}
+{:sistemas, "Um texto"}
+```
+
+Como o armazenamento dos elementos é contínuo, **acessar uma tupla por indices específicos** é uma tarefa com **complexidade O(1)**.
+
+Recuperar o tamanho de uma tupla também é uma tarefa bem rápida:
+
+```elixir
+iex> tupla = {:sistemas, "Um texto"}
+{:sistemas, "Um texto"}
+
+# Recupera o elemento de indice 1 da tupla (indices começam em 0)
+iex>  elem(tupla, 1)
+"Um texto"
+
+iex> tuple_size(tupla)
+2
+```
+
+Também é possível inserir novos elementos em uma tupla utilizando a função `put_elem/3`, observando a sintaxe com `h` temos:
+
+```elixir
+iex> h put_elem/3
+
+def put_elem(tuple, index, value)
+@spec put_elem(tuple(), non_neg_integer(), term()) :: tuple()
+
+Puts `value` at the given zero-based `index` in `tuple`.
+
+Inlined by the compiler.
+
+## Examples
+
+    iex> tuple = {:foo, :bar, 3}
+    iex> put_elem(tuple, 0, :baz)
+    {:baz, :bar, 3}
+```
+
+Um outro exemplo:
+
+```elixir
+iex> tupla = {:sistemas, "Um texto"}
+{:sistemas, "Um texto"}
+
+iex> put_elem(tupla, 1, "Outro texto")
+{:sistemas, "Outro texto"}
+
+iex> tupla
+{:sistemas, "Um texto"}
+```
+---
+**Diferentemente do python os valores de uma tupla podem ser "modificados"**
+
+---
+
+## Uma comparação entre Listas e Tuplas
+
+Como as listas são armazenadas em memória como `linked lists` recuperar seu tamanho é uma tarefa com **complexidade O(n)**.
+
+De forma similar a concatenação de listas depende do tamanho da lista a esquerda da operação:
+
+```elixir
+iex> lista = [1, 2, 3, 4, 5, 6, 7]
+
+iex> [0] ++ lista
+[0, 1, 2, 3, 4, 5, 6, 7]
+
+iex> lista ++ [8]
+[0, 1, 2, 3, 4, 5, 6, 7, 8]
+```
+
+Por outro lado, como as tuplas são armazenadas em sequência acessar o tamanho ou um elemento específico é mais rápido, mas atualizar ou adicionar elementos em uma é mais custoso pois envolve criar outra tupla em memória.
+
+```elixir
+iex> tuple = {:a, :b, :c, :d}
+{:a, :b, :c, :d}
+iex> put_elem(tuple, 2, :e)
+{:a, :b, :e, :d}
+```
+
+Mas no caso esse problema só se aplica a própria tupla, não aos seus elementos.
+
+O uso mais comum das tuplas, assim como no python, é para retornar mais informações em uma função, por exemplo:
+
+``` elixir
+iex> funcao = 
+  fn a, b ->
+    c = a * 2
+    d = b / 2
+    {c, d}
+  end
+
+iex> funcao.(2, 5)
+{4, 2.5}
+
+iex> {resp1, resp2} = funcao(3, 7)
+iex> resp1
+6
+iex> resp2
+3.5
+```
+
+# Módulos e funções
+
+Os módulos no Elixir são representados pelas palavras-chave `defmodule` e `end`, enquanto as funções dentro dos módulos por `def` e `end`:
+
+```elixir
+iex> defmodule Exemplo do:
+  ...
+  def funcao(param) do:
+    ...
+  end
+end 
+
+iex> Exemplo.funcao(param)
+...
+
+```
+
+Com a criação de módulos e funções, pode ser muito trabalhoso declará-los no terminal interativo `IEx` para isso os exemplos serão criados em arquivos `.ex`:
+
+Criando um módulo `Math` no arquivo `ExemploMath\math.ex`, escrevemos dentro dele:
+
+```elixir
+defmodule Math do
+  def sum(a, b) do
+    a + b
+  end
+end
+```
+
+Para compilar o arquivo basta executar `elixirc ExemploMath\math.ex`.
+
+Depois da compilação será criado um arquivo `Elixir.Math.beam`, assim que o terminal interativo IEx for executado novamente o módulo estará disponível.
+
+## Organização da árvore de projetos
+
+* `_builder`
+  * Contém os artefatos de compilação
+* `lib`
+  * Contém o código em elixir (normalmente `.ex`)
+* `test`
+  * Contém os códigos para teste (normalmente `.exs`)
+
+Quando trabalhando com projetos a ferramenta de build `mix` será responsável por compilar e organizar os devidos caminhos. Por motivos de conveniência o Elixir também possibilita trabalhar num modo baseado em scripts, que é mais flexível.
+
+## Scripts
+
+Os scripts do Elixir são caracterizados pela extensão `.exs` e são tratados da mesma forma que os arquivos `.ex`, a única diferença sendo seus objetivos.
+
+Por exemplo podemos criar um script muito similar ao módulo `ExemploMath\math.ex`.
+
+Para isso criamos o arquivo `ExemploMath\math.exs` e escrevemos o mesmo código presente no módulo:
+
+``` elixir
+defmodule Math do
+  def sum(a, b) do
+    a + b
+  end
+end
+```
+
+Mas como o `math.exs` é um arquivo que pode ser executado, podemos inserir a chamada da função nele mesmo utilizando um print:
+
+``` elixir
+defmodule Math do
+  def sum(a, b) do
+    a + b
+  end
+end
+
+IO.puts(Math.sum(1, 2))
+
+# IO.puts Math.sum(1, 2) também funciona
+```
+
+Para executar um determinado script basta escrever no seu terminal:
+
+```
+> elixir .\math.exs
+
+> elixir caminho\para\math.exs
+```
+
+## Modificadores de função
+
+Dentro de um determinado módulo, podemos ter dois tipos de funções, as funções públicas que são definidas por `def` e as funções privadas definidas por `defp`.
+
+As funções privadas só podem ser chamadas de dentro do próprio módulo.
+
+Por exemplo podemos alterar o script `math.exs` para:
+
+``` elixir
+defmodule Math do
+  def divide(a, b) do
+    print(a / b)
+  end
+
+  defp print(msg) do
+    IO.puts(msg)
+  end
+end
+
+Math.divide(5,2) # 2.5
+Math.print("Uma mensagem") # Erro
+```
+
+As declarações de funções também suportam guardas e cláusulas multiplas. Se uma função possui várias cláusulas o Elixir testará cada uma até encontrar uma que combine. Aqui está a implementação de uma função que checa se um número é par ou ímpar:
+
+```elixir
+defmodule Math do
+  # O ? no final indica que as funções retornam booleano (convenção de nomenclatura no Elixir)
+  def par?(2) do
+    true
+  end
+
+  def par?(num) when is_integer(num) do
+    rem(num, 2) == 0
+  end
+end
+
+IO.puts Math.par?(2)  # true
+IO.puts Math.par?(4)  # true
+IO.puts Math.par?(1)  # false
+IO.puts Math.par?([1, 2, 3])  # erro
+IO.puts Math.par?(0, 0) # erro
+```
+
+As funções podem ser declaradas tanto no formato `do` como no formato `do:`, mostrado a baixo:
+
+```elixir
+defmodule Math do
+  # O ? no final indica que as funções retornam booleano (convenção de nomenclatura no Elixir)
+  def par?(2), do: true
+
+  def par?(num) when is_integer(num), do: rem(num, 2)
+end
+```
+
+## Capturando funções e operações no iex
+
+No iex as funções e operações podem ser capturadas e atribuídas a variáveis. Como exemplo vamos executar o script `math.exs` com o  iex, primeiro retiramos as linhas que podem dar erro do final do arquivo e executamos o comando a seguir no terminal:
+
+```
+> iex ExemploMath\math.exs
+
+# No powershell
+> iex.bat ExemploMath\math.exs
+```
+
+Em seguida podemos capturar a função `par?` para uma variável `par`:
+
+```elixir
+iex> par = &Math.par?/1
+&Math.par/1
+iex> par.(3)
+false
+iex> is_function(par)
+true
+```
+
+Funções locais ou importadas podem ser capturadas sem o módulo:
+
+```elixir
+iex> resto = &rem/2
+&:erlang.rem/2
+iex> resto.(5,2)
+1
+```
+
+Também é possível capturar operações:
+
+```elixir
+iex> concat = &++/2
+&:erlang.++/2
+iex> concat.([1, 2], [3, 4])
+[1, 2, 3, 4]
+```
+
+O operador de captura também pode ser utilizado para encurtar a declaração de funções:
+
+```elixir
+iex> soma1 = &(&1 + 1)
+#Function<44.40011524/1 in :erl_eval.expr/5>
+iex> soma1.(3)
+4
+iex> bom = &"Bom #{&1}"
+#Function<44.40011524/1 in :erl_eval.expr/5>
+iex> bom.("dia")
+"Bom dia"
+iex> bom.("domingo")
+"Bom domingo"
+```
+
+É possível passar um valor padrão aos argumentos de uma função. Para isso vamos criar o script `ExemploPadrao\padrao.exs` e inserir este código:
+
+```elixir
+defmodule Padrao do
+  # O argumento sep recebe por padrão a string "/"
+  def formata_data(dia, mes, ano, sep \\ "/"), do: dia <> sep <> mes <> sep <> ano
+end
+
+IO.puts Padrao.formata_data("3", "3", "2022") # 3/3/2022
+IO.puts Padrao.formata_data("3", "3", "2022", "-")  # 3-3-2022
+```
+
+Quando uma função com argumentos que possuam valores padrões é declarada e ela possui múltiplas cláusulas, é necessário declarar uma função principal que tenha os argumentos com seus valores padrões e em seguida as declarações das funções em cada comportamento, por exemplo vamos criar o módulo `Concat` no arquivo de script `padrao.exs`:
+
+```elixir
+defmodule Concat do
+  # Função principal com os valores padrões de cada argumento
+  def join(a, b \\ nil, sep \\ " ")
+
+  # Função para caso b seja nil
+  # o "_" antes de sep indica que esse argumento é ignorado na função (Convenção de nomenclatura)
+  def join(a, b, _sep) when is_nil(b), do: a
+
+  # Função para caso b não seja nulo
+  def join(a, b, sep), do: a <> sep <> b
+end
+
+IO.puts Concat.join("texto")  # texto
+IO.puts Concat.join("texto", , "-") # texto
+IO.puts Concat.join("texto", "concatenado") # texto concatenado
+IO.puts Concat.join("texto", "concatenado", "-") # texto-concatenado
+```
+
+# Criando um projeto com Elixir
+
+Para criar um projeto com Elixir será utilizada a ferramenta `mix` que funciona com a seguinte sintaxe:
+
+```
+> mix new {caminho\para\nome_projeto}
+```
+
+Criando o projeto com `mix new projeto_sist_distrib`:
+
+Dentro da pasta recém criada `projeto_sist_distrib`, temos várias pastas e arquivos:
+
+* lib
+  * projeto_sist_distrib.ex
+* test
+  * projeto_sist_distrib_test.exs
+  * test_helper.exs
+* .formatter.exs
+* .gitignore
+* mix.exs
+* README.md
+
+O primeiro arquivo é o `mix.exs` que é responsável pelas configurações do projeto (similar ao package.json de uma aplicação node):
+
+Dentro deste arquivo temos o seguinte código:
+
+```elixir
+defmodule ProjetoSistDistrib.MixProject do
+  use Mix.Project
+
+  def project do
+    [
+      app: :projeto_sist_distrib,
+      version: "0.1.0",
+      elixir: "~> 1.13",
+      start_permanent: Mix.env() == :prod,
+      deps: deps()
+    ]
+  end
+
+  # Run "mix help compile.app" to learn about applications.
+  def application do
+    [
+      extra_applications: [:logger]
+    ]
+  end
+
+  # Run "mix help deps" to learn about dependencies.
+  defp deps do
+    [
+      # {:dep_from_hexpm, "~> 0.3.0"},
+      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+    ]
+  end
+end
+```
+
+O mix declara duas funções públicas `project` que retorna as configurações do projeto e `application` que é utilizado para gerar um arquivo de aplicação.
+
+Existe também a função privada `deps` chamada pela função `project` que retorna todas as dependências utilizadas pelo projeto.
+
+O arquivo `lib\projeto_sist_distrib.ex` é um módulo que contém apenas uma função `hello`. E é o bastante para testar a compilação do projeto. Para compilar basta entrar na pasta do projeto `cd projeto_sist_distrib` e executar o comando `mix compile`.
+
+```
+cd projeto_sist_distrib
+mix compile
+
+Compiling 1 file (.ex)
+Generated projeto_sist_distrib app
+```
+
+Todos os arquivos gerados pela compilação são postos na pasta `_build` que deve ter sido criada na pasta do projeto.
+
+Assim que o projeto é compilado podemos começar uma sessão iex dentro dele com o comando `iex -S mix`, assim que qualquer alteração é realizada no código a sessão iex pode ser reiniciada, ou pode ser utilizada a função `recompile()`.
+
+Caso o `recompile()` ache algo para ser recompilado aparecerá uma mensagem:
+
+``` elixir
+Compiling 1 file (.ex)
+:ok
+```
+
+Se não uma mensagem:
+
+```elixir
+:noop
+```
+
+O arquivo `.formatter.exs` também criado pelo `mix` é responsável por definir quais arquivos vão ser automaticamente formatados pelo comando `mix format`
+
+O mix também oferece o conceito de `ambientes` onde existem as chamadas `variáveis de ambiente`, sendo os ambientes definidos como `:prod`, `:dev` e `:test`:
+
+* `:prod` - Quando o projeto for executado em produção
+* `:dev` - Quando o projeto é executado pelas tarefas Mix (`mix compile`) é utilizado como padrão;
+* `:test` - Quando se está executando os testes;
