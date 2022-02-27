@@ -909,3 +909,88 @@ O mix também oferece o conceito de `ambientes` onde existem as chamadas `variá
 * `:prod` - Quando o projeto for executado em produção
 * `:dev` - Quando o projeto é executado pelas tarefas Mix (`mix compile`) é utilizado como padrão;
 * `:test` - Quando se está executando os testes;
+
+# Agentes
+
+Agentes são simples containers que envolvem o estado. Muito utilizados caso tudo que seja necessário seja manter o estado.
+
+Brincando um pouco com agentes:
+
+* Primeiro crie uma sessão `iex` dentro do projeto: `iex -S mix`
+  
+Agora insira a sequência de comandos a seguir:
+```elixir
+# Cria um agente com uma lista vazia
+iex> {:ok, agent} = Agent.start_link fn -> [] end
+{:ok, #PID<0.151.0>}
+
+# Atualiza a lista do agente adicionando "eggs" no começo
+iex> Agent.update(agent, fn list -> ["eggs" | list] end)
+
+# Recupera a lista do agente
+iex> Agent.get(agent, fn list -> list end)
+["eggs"]
+
+# Para o agente
+iex> Agent.stop(agent)
+:ok
+
+```
+
+Mas como um estado dentro de um agente pode ser alterado de várias formas, o mais recomendado é encapsulálo dentro de um módulo.
+
+Para isso vamos criar o módulo `lib\compras.ex` dentro do projeto. Nesse arquivo vamos escrever este código:
+
+```elixir
+defmodule Compras do
+  use Agent
+
+  @doc """
+  Inicia uma lista de compras
+  """
+  def comecar_lista() do
+    # Inicia o agente com uma lista vazia
+    Agent.start_link(fn -> [] end)
+  end
+
+  @doc """
+  Adiciona um item a uma lista de compras
+  """
+  def adicionar(lista, item) do
+    Agent.update(lista, fn l -> [item | l] end)
+  end
+
+  @doc """
+  Recupera a lista de compras do agente
+  """
+  def recuperar(lista) do
+    Agent.get(lista, fn lista -> lista end)
+  end
+
+end
+```
+
+Em seguida vamos criar o módulo `ComprasTeste` no arquivo `test\projeto_sist_distrib.exs`, nesse módulo vamos ter o seguinte código:
+
+```elixir
+defmodule ComprasTeste do
+  use ExUnit.Case, async: true  # permite o caso teste ser executado em paralelo com outros casos teste
+  doctest Compras
+
+  setup do
+    {:ok, lista} = Compras.comecar_lista() # Cria a lista
+    %{lista: lista}
+  end
+
+  # Recebe a lista já criada por meio do %{lista: lista}
+  test "Adicionar um item na lista", %{lista: lista} do
+    
+    assert Compras.recuperar(lista) == [] # Verifica se ela está devidamente vazia
+
+    Compras.adicionar(lista, "leite") # Adiciona "leite" a lista
+    assert Compras.recuperar(lista) == ["leite"] # Veirifica se "leite" foi devidamente adicionado na lista
+  end
+end
+```
+
+Todas as funções passadas para um agente são executadas dentro do processo do agente chamado de `servidor` já que recebe e responde às mensagens, tudo que acontece fora dele é o `cliente`.
