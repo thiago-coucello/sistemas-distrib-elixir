@@ -7,35 +7,22 @@ defmodule ProjetoSistDistribTest do
   end
 end
 
-defmodule ComprasTeste do
+defmodule BucketTest do
   use ExUnit.Case, async: true
-  doctest Compras
-
-  test "Adicionar um item na lista" do
-    {:ok, lista} = Compras.comecar_lista()
-    assert Compras.recuperar(lista) == []
-
-    Compras.adicionar(lista, "leite")
-    assert Compras.recuperar(lista) == ["leite"]
-  end
-end
-
-defmodule BaldeTeste do
-  use ExUnit.Case, async: true
-  doctest Balde
+  doctest Bucket
 
   setup do
-    {:ok, balde} = Balde.start_link([])
-    %{balde: balde}
+    {:ok, bucket} = Bucket.start_link([])
+    %{bucket: bucket}
   end
 
-  test "stores values by key", %{balde: balde} do
-    assert Balde.get(balde, "leite") == nil # Verifica se a chave leite não está no balde
+  test "stores values by key", %{bucket: bucket} do
+    assert Bucket.get(bucket, "milk") == nil # Verifica se a chave leite não está no bucket
 
-    Balde.put(balde, "leite", 3)
-    assert Balde.get(balde, "leite") == 3 # Verifica se a chave leite está no balde com valor 3
+    Bucket.put(bucket, "milk", 3)
+    assert Bucket.get(bucket, "milk") == 3 # Verifica se a chave leite está no bucket com valor 3
 
-    Balde.put(balde, "banana", 5)
-    assert Balde.get(balde, "banana") == 5
+    Bucket.put(bucket, "banana", 5)
+    assert Bucket.get(bucket, "banana") == 5
   end
 end
