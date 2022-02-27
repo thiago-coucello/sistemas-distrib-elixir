@@ -934,63 +934,264 @@ iex> Agent.get(agent, fn list -> list end)
 # Para o agente
 iex> Agent.stop(agent)
 :ok
+```
 
+É possível inserir um nome próprio para o agente:
+
+```elixir
+# Cria um agente com um mapa vazio e com nome :mapa
+iex> {:ok, agent} = Agent.start_link fn -> %{} end, name: :mapa
+{:ok, #PID<0.149.0>}
+iex> Agent.update(:mapa, fn mapa -> Map.put(mapa, "chave", :valor) end)
+:ok
+iex> Agent.get(:mapa, fn mapa -> mapa end)
+%{"chave" => :valor}
+iex> Agent.stop(:mapa)
+:ok
 ```
 
 Mas como um estado dentro de um agente pode ser alterado de várias formas, o mais recomendado é encapsulálo dentro de um módulo.
 
-Para isso vamos criar o módulo `lib\compras.ex` dentro do projeto. Nesse arquivo vamos escrever este código:
+Para isso vamos criar o módulo `lib\bucket.ex` dentro do projeto. Nesse arquivo vamos escrever este código:
 
 ```elixir
-defmodule Compras do
+defmodule Bucket do
   use Agent
 
   @doc """
-  Inicia uma lista de compras
+  Starts a new bucket.
   """
-  def comecar_lista() do
-    # Inicia o agente com uma lista vazia
-    Agent.start_link(fn -> [] end)
+  def start_link(_opts) do
+    Agent.start_link(fn -> %{} end)
   end
 
   @doc """
-  Adiciona um item a uma lista de compras
+  Gets a value from the `bucket` by `key`.
   """
-  def adicionar(lista, item) do
-    Agent.update(lista, fn l -> [item | l] end)
+  def get(bucket, key) do
+    Agent.get(bucket, &Map.get(&1, key))
   end
 
   @doc """
-  Recupera a lista de compras do agente
+  Puts the `value` for the given `key` in the `bucket`.
   """
-  def recuperar(lista) do
-    Agent.get(lista, fn lista -> lista end)
+  def put(bucket, key, value) do
+    Agent.update(bucket, &Map.put(&1, key, value))
   end
-
 end
 ```
 
-Em seguida vamos criar o módulo `ComprasTeste` no arquivo `test\projeto_sist_distrib.exs`, nesse módulo vamos ter o seguinte código:
+Em seguida vamos criar o módulo `BucketTest` no arquivo `test\projeto_sist_distrib.exs`, nesse módulo vamos ter o seguinte código:
 
 ```elixir
-defmodule ComprasTeste do
-  use ExUnit.Case, async: true  # permite o caso teste ser executado em paralelo com outros casos teste
-  doctest Compras
+defmodule BucketTest do
+  use ExUnit.Case, async: true
+  doctest Bucket
 
   setup do
-    {:ok, lista} = Compras.comecar_lista() # Cria a lista
-    %{lista: lista}
+    {:ok, bucket} = Bucket.start_link([])
+    %{bucket: bucket}
   end
 
-  # Recebe a lista já criada por meio do %{lista: lista}
-  test "Adicionar um item na lista", %{lista: lista} do
-    
-    assert Compras.recuperar(lista) == [] # Verifica se ela está devidamente vazia
+  test "stores values by key", %{bucket: bucket} do
+    assert Bucket.get(bucket, "milk") == nil # Verifica se a chave leite não está no bucket
 
-    Compras.adicionar(lista, "leite") # Adiciona "leite" a lista
-    assert Compras.recuperar(lista) == ["leite"] # Veirifica se "leite" foi devidamente adicionado na lista
+    Bucket.put(bucket, "milk", 3)
+    assert Bucket.get(bucket, "milk") == 3 # Verifica se a chave leite está no bucket com valor 3
+
+    Bucket.put(bucket, "banana", 5)
+    assert Bucket.get(bucket, "banana") == 5
   end
 end
 ```
 
 Todas as funções passadas para um agente são executadas dentro do processo do agente chamado de `servidor` já que recebe e responde às mensagens, tudo que acontece fora dele é o `cliente`.
+
+## GenServer (_Generic Server_)
+
+No tópico anterior foi criado um módulo `Bucket` que administrava e controlava as operações realizadas pelo agente. O ideal seria conseguir criar cada bucket de forma dinâmica:
+
+```
+CREATE shopping
+OK
+
+PUT shopping "milk" 3
+OK
+
+GET shopping "milk"
+3
+```
+
+Mesmo que seja possível nomear cada agente com um nome próprio, nomear um processo dinâmico com nome atômico é altamente não recomendado. **Nunca se deve converter um input do usuário em valor atômico**, já que átomos não são destruidos automaticamente pelo sistema.
+
+Ao invés de abusar da mecânica de nomear agentes com valores atômicos, é mais recomendável criar o próprio registro de processos que associa o nome agente com o devido processo.
+
+Para isso criaremos um `GenServer` para controlar os agentes.
+
+Mas antes vamos entender como funcionavam os processos dentro do modulo `Bucket`:
+
+```elixir
+@doc """
+  Puts the `value` for the given `key` in the `bucket`.
+  """
+  def put(bucket, key, value) do
+    Agent.update(bucket, &Map.put(&1, key, value))
+  end
+```
+
+Num `GenServer` o código acima seria dividido em duas funções:
+
+```elixir
+def put(bucket, key, value) do
+  # Manda uma "instrução" :put para o servidor
+  GenServer.call(bucket, {:put, key, value})
+end
+
+# Retorno do servidor
+
+def handle_call({:put, key, value}, _from, state) do
+  # Retorna essa tupla
+  {:reply, :ok, Map.put(state, key, value)}
+end
+```
+
+Vamos criar um arquivo para lidar com os retornos do servidor para a lógica de registro de agentes dinâmicos, sem a própria API. Para isso criamos um outro arquivo `lib/registry.ex`, com o seguinte código:
+
+```elixir
+defmodule BucketRegistry do
+  use GenServer
+
+  ## Missing Client API - will add this later
+
+  ## Defining GenServer Callbacks
+
+  @impl true
+  def init(:ok) do
+    {:ok, %{}}
+  end
+
+  @impl true
+  def handle_call({:lookup, name}, _from, names) do
+    {:reply, Map.fetch(names, name), names}
+  end
+
+  @impl true
+  def handle_cast({:create, name}, names) do
+    if Map.has_key?(names, name) do
+      {:noreply, names}
+    else
+      {:ok, bucket} = Bucket.start_link([])
+      {:noreply, Map.put(names, name, bucket)}
+    end
+  end
+end
+```
+
+Existem dois tipos de requisição que um `GenServer` precisa lidar, as do tipo `call` que são sincronas e precisam devolver uma resposta. E as do tipo `cast` que são assincronas e não precisam de uma devolver uma resposta.
+
+Um exemplo de como invocar os tratamentos do `BucketRegistry`:
+
+```elixir
+iex> {:ok, registry} = GenServer.start_link(BucketRegistry, :ok)
+{:ok, #PID<0.140.0>}
+iex> GenServer.cast(registry, {:create, "shopping"})
+:ok
+iex> {:ok, bucket} =  GenServer.call(registry, {:lookup, "shopping"})
+{:ok, #PID<0.150.0>}
+``` 
+
+No exemplo registramos um agente `shopping` e em seguida o recuperamos dos registros. O termo `@impl true` antes de cada `callback` serve para indicar ao compilador que a declaração subsequente é para criar um `callback` e caso ocorresse algum erro na declaração ele emitiria um aviso e daria sugestões de como declarar.
+
+### A API do Cliente
+
+Um `GenServer` tem duas partes, a API do Cliente e as Respostas do Servidor, as duas partes podem ser separadas em módulos diferentes ou implementadas no mesmo módulo. O cliente é qualquer processo que envolva as funções do cliente. O servidor é sempre o processo identificador ou processo nome que passa os argumentos para a API do cliente.
+
+Para criar a API do cliente vamos criar um módulo a parte `lib/client.ex`, com o seguinte código:
+
+```elixir
+defmodule ClientAPI do
+  ## Client API
+
+  @doc """
+  Starts the registry.
+  """
+  def start_link(opts) do
+    # Cria um novo GenServer passando uma lista de opções
+    # BucketRegistry - O módulo onde os retornos estão implementados
+    # :ok            - O argumento de inicialização
+    # opts           - Uma lista de opções que podem ser passadas ao criar o GenServer
+    # especificando coisas como o nome do servidor etc.
+    GenServer.start_link(BucketRegistry, :ok, opts)
+  end
+
+  @doc """
+  Looks up the bucket pid for `name` stored in `server`.
+
+  Returns `{:ok, pid}` if the bucket exists, `:error` otherwise.
+  """
+  #Responsável por enviar a requisição solicitando um processo pelo nome
+  def lookup(server, name) do
+    GenServer.call(server, {:lookup, name})
+  end
+
+  @doc """
+  Ensures there is a bucket associated with the given `name` in `server`.
+  """
+  #Responsável por enviar uma requisição solicitando a criação de um processo e passando o nome dele
+  def create(server, name) do
+    GenServer.cast(server, {:create, name})
+  end
+end
+```
+
+Pronto, agora nosso sistema está criando agentes de forma dinâmica com nomes passados pelo próprio cliente.
+
+Para isso basta compilar e criar uma sessão do iex dentro do projeto:
+
+```
+> cd caminho\para\projeto_sist_distrib # Caso não esteja dentro do projeto
+> mix compile
+> iex -S mix
+> iex.bat -S mix # caso no powershell
+``` 
+
+Em seguida iniciamos o servidor:
+
+```elixir
+iex> {:ok, servidor} = ClientAPI.start_link([])
+```
+
+Depois de criar o servidor podemos começar a criar nossos processos e alterá-los.
+
+```elixir
+# Criando um processo chamado "compras"
+iex> ClientAPI.create(servidor, "compras")
+:ok
+
+# Recupera o processo pelo nome
+iex> {:ok, compras} = ClientAPI.lookup(servidor, "compras")
+
+# Agora temos o processo e podemos alterá-lo
+iex> Bucket.put(compras, "leite", 5)
+:ok
+
+iex> Bucket.get(compras, "leite")
+5
+
+# Mas não precisamos nos restringir a um processo
+iex> ClientAPI.create(servidor, "shopping")
+:ok
+
+iex> {:ok, shopping} = ClientAPI.lookup(servidor, "shopping")
+{:ok, #PID<0.150.0>}
+
+iex> Bucket.put(shopping, "roupa", 1)
+:ok
+
+iex> Bucket.get(shopping, "roupa")
+1
+```
+
+E assim toda uma comunicação cliente-servidor foi estabelecida, funcionando em qualquer ambiente no qual esteja executando com o Elixir.
+
+Existe muito mais a ser feito, mas o que foi passado até agora é o suficiente para mostrar as possibilidades do Elixir na área de Sistemas Distribuídos.
